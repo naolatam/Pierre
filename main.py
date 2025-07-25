@@ -10,7 +10,6 @@ from langchain_core.messages import HumanMessage
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from tools.time import get_time 
-from tools.video_day import video_day
 
 load_dotenv()
 
@@ -32,7 +31,7 @@ llm = ChatOllama(model="qwen3:1.7b", reasoning=False)
 # llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, organization=org_id) for openai
 
 # Tool list
-tools = [get_time, video_day]
+tools = [get_time]
 
 # Tool-calling prompt
 prompt = ChatPromptTemplate.from_messages([
