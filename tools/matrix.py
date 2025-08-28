@@ -9,7 +9,10 @@ import shutil
 def matrix_mode() -> str:
     """
     Opens a new terminal window and runs the cmatrix command to enter 'Matrix Mode'.
-    On Windows, simulates Matrix Mode using a Python script in a new console.
+    Use this tool when the user says something like:
+    - "Enter matrix mode"
+    - "Activate matrix mode"
+    - "Go into matrix mode"
     """
     system = platform.system()
 
@@ -31,18 +34,29 @@ def matrix_mode() -> str:
             return "Matrix mode has been activated, sir!"
 
         elif system == "Windows":
-            # Simulated Matrix Mode using Python
-            matrix_script = '''
+            python_script = '''
 import random
 import time
 import os
+import sys
 
 os.system("color 0A")  # Green text on black background
-chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*"
-width = 80
-height = 25
+chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*"
+
+def get_terminal_size():
+    try:
+        import shutil
+        return shutil.get_terminal_size()
+    except:
+        return (80, 25)
+
+width, height = get_terminal_size()
+width = min(width, 120)
+height = min(height, 30)
+
 drops = [random.randint(0, height) for _ in range(width)]
 
+print("\\033[32m")
 print("Welcome to the Matrix. Press Ctrl+C to exit...")
 time.sleep(2)
 
@@ -60,12 +74,12 @@ try:
             print("".join(row))
         time.sleep(0.1)
 except KeyboardInterrupt:
-    print("\\nExiting Matrix...")
+    print("\\n\\033[32mExiting Matrix...\\033[0m")
     time.sleep(1)
 '''
 
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
-                f.write(matrix_script)
+                f.write(python_script)
                 script_path = f.name
 
             subprocess.Popen([sys.executable, script_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -75,3 +89,4 @@ except KeyboardInterrupt:
             return f"Matrix mode is not supported on {system}."
     except Exception as e:
         return f"Failed to activate matrix mode: {str(e)}"
+
