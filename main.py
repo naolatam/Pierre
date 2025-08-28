@@ -10,7 +10,14 @@ from langchain_ollama import ChatOllama, OllamaLLM
 from langchain_core.messages import HumanMessage
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
+
+# importing tools
 from tools.time import get_time
+from tools.ocr import read_text_from_latest_image
+from tools.arp_scan import arp_scan_terminal
+from tools.duckduckgo import duckduckgo_search_tool
+from tools.matrix import matrix_mode
+from tools.screenshot import take_screenshot
 
 load_dotenv()
 
@@ -32,7 +39,7 @@ llm = ChatOllama(model="qwen3:1.7b", reasoning=False)
 # llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, organization=org_id) for openai
 
 # Tool list
-tools = [get_time]
+tools = [get_time, arp_scan_terminal, read_text_from_latest_image, duckduckgo_search_tool, matrix_mode, take_screenshot]
 
 # Tool-calling prompt
 prompt = ChatPromptTemplate.from_messages(
