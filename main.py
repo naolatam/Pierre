@@ -13,7 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 # importing tools
 from tools.time import get_time
-from tools.ocr import read_text_from_latest_image
+from tools.OCR import read_text_from_latest_image
 from tools.arp_scan import arp_scan_terminal
 from tools.duckduckgo import duckduckgo_search_tool
 from tools.matrix import matrix_mode
