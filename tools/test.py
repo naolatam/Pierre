@@ -15,7 +15,13 @@ def test(time_info: str) -> str:
     Args:
         time_info: The current time string obtained from the get_time tool
     
+    Default agent workflows:
+    - User: "Run the test"
+    - Agent: Calls get_time to get current time -> result: "14:35 PM"
+    - Agent: Then calls test tool with time_info="14:35 PM"
     
+
+        
     This allows the agent to orchestrate multi-step tool calls.
     """
     try:
