@@ -18,35 +18,59 @@ logger = logging.getLogger(__name__)
 
 
 @tool("run_command", return_direct=False)
-def run_command(commands: str, capture_output: bool = False) -> str:
+def run_command(commands: str, open_terminal: bool = False) -> str:
     """
-    Runs commands either in a terminal window or captures output directly.
+    Runs commands and captures output. Only opens a terminal window for interactive applications.
     
     Args:
         commands: Commands to run. Can be:
                  - A single command: "ls -la"
                  - Multiple commands on separate lines (each will be executed after the previous)
-        capture_output: If True, runs in background and captures output (no terminal window).
-                       If False, opens a new terminal window (output not captured).
+        open_terminal: Set to True ONLY when launching interactive applications or GUI programs.
+                      Default: False (capture output)
 
-    When capture_output=True:
-    - Commands run in the background
-    - Output (stdout/stderr) is captured and returned
-    - No terminal window opens
+    !IMPORTANT - DEFAULT BEHAVIOR:
+    By default, this tool CAPTURES OUTPUT and returns it to you.
+    This is what you want 99% of the time for:
+    - File operations: ls, pwd, find, cat, grep, etc.
+    - System info: uname, df, ps, top, etc.
+    - Installing packages: pip install, apt install, npm install, etc.
+    - Running scripts: python script.py, bash script.sh, etc.
+    - Checking status: git status, docker ps, systemctl status, etc.
     
-    When capture_output=False (default):
-    - Opens a new terminal window
-    - You can see and interact with the terminal
-    - Output is NOT captured
+    ONLY set open_terminal=True for:
+    - Interactive applications: vim, nano, htop, etc.
+    - GUI applications: code, firefox, chrome, etc.
+    - Long-running servers when user wants to monitor: python manage.py runserver
+    - User explicitly asks to "open terminal" or "show in terminal"
     
-
-    Example queries:
-    - "Run ls -la" - Opens terminal
-    - "Run ls -la and capture output" - Runs in background, returns output
-    - "Execute python script.py" - Opens terminal
-    - "Get output of: pwd" - Captures and returns output
+    Example workflows:
+    ✅ CORRECT - Capture output (default):
+    - "Check if file exists" → run_command("test -f file.txt && echo EXISTS")
+    - "Install package" → run_command("pip install requests")
+    - "Get current directory" → run_command("pwd")
+    - "List files" → run_command("ls -la")
+    - "Run Python script" → run_command("python script.py")
     
-    Note: You cannot both open a terminal window AND capture output at the same time.
+    ❌ WRONG - Don't open terminal for these:
+    - "Run ls" → Don't use open_terminal=True
+    - "Install numpy" → Don't use open_terminal=True
+    - "Execute script.py" → Don't use open_terminal=True
+    
+    ✅ CORRECT - Open terminal:
+    - "Open vim to edit file" → run_command("vim file.txt", open_terminal=True)
+    - "Launch VSCode" → run_command("code .", open_terminal=True)
+    - "Start server in terminal" → run_command("python server.py", open_terminal=True)
+    - User says "open terminal and run X" → use open_terminal=True
+    
+    Output format when capturing:
+    - Returns stdout, stderr, and exit code
+    - Perfect for checking results, debugging, or chaining commands
+    
+    Output format when opening terminal:
+    - Opens new terminal window
+    - User can see interactive output
+    - Output is NOT returned to you
     """
     try:
         # Clean up the command string
@@ -54,10 +78,10 @@ def run_command(commands: str, capture_output: bool = False) -> str:
         
         if not command_input:
             return "Error: No command provided."
-        
-        logger.info(f"Running command(s): {command_input} (capture_output={capture_output})")
-        
-        if capture_output:
+
+        logger.info(f"Running command(s): {command_input} (open_terminal={open_terminal})")
+
+        if not open_terminal:
             # Run command directly and capture output (no terminal window)
             try:
                 result = subprocess.run(
@@ -132,8 +156,8 @@ def run_command(commands: str, capture_output: bool = False) -> str:
             if result:
                 command_preview = command_input[:100] + "..." if len(command_input) > 100 else command_input
                 return f"✅ Successfully launched terminal with command(s):\n{command_preview}\n\n" \
-                       f"The terminal window is now open. You can see the output there.\n" \
-                       f"Note: To capture output, ask me to 'capture output' or 'get output of command'."
+                       f"The terminal window is now open. You can interact with it there.\n" \
+                       f"Note: Output is not captured when opening a terminal window."
             else:
                 return "❌ Failed to launch terminal. Make sure a terminal emulator is installed on your system."
             

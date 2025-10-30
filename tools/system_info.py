@@ -52,3 +52,8 @@ def get_battery_status() -> str:
             return "No battery information available (desktop system)"
     except Exception as e:
         return f"Error getting battery info: {e}"
+    
+@tool("get_os", return_direct=False)
+def get_os() -> str:
+    """Get the operating system name."""
+    return platform.system()
