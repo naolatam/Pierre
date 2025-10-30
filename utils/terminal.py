@@ -61,13 +61,13 @@ def detect_available_terminal() -> Optional[str]:
     """
     terminals = [
         'gnome-terminal',
+        'tilix',
+        'xterm',
         'kitty',
         'konsole',
         'xfce4-terminal',
-        'xterm',
         'terminator',
         'alacritty',
-        'tilix',
         'mate-terminal',
         'lxterminal',
         'rxvt',
@@ -124,34 +124,36 @@ def get_terminal_command_template(terminal: str) -> Optional[List[str]]:
         List[str]: The command template with '{command}' placeholder, or None if unsupported.
     """
     templates: Dict[str, List[str]] = {
-        'gnome-terminal': ['gnome-terminal', '--', 'bash', '-c', '{command}; exec bash'],
-        'kitty': ['kitty', 'bash', '-c', '{command}; exec bash'],
-        'konsole': ['konsole', '-e', 'bash', '-c', '{command}; exec bash'],
-        'xfce4-terminal': ['xfce4-terminal', '-e', 'bash -c "{command}; exec bash"'],
-        'xterm': ['xterm', '-e', 'bash -c "{command}; exec bash"'],
-        'terminator': ['terminator', '-e', 'bash -c "{command}; exec bash"'],
-        'alacritty': ['alacritty', '-e', 'bash', '-c', '{command}; exec bash'],
-        'tilix': ['tilix', '-e', 'bash -c "{command}; exec bash"'],
-        'mate-terminal': ['mate-terminal', '-e', 'bash -c "{command}; exec bash"'],
-        'lxterminal': ['lxterminal', '-e', 'bash -c "{command}; exec bash"'],
-        'rxvt': ['rxvt', '-e', 'bash', '-c', '{command}; exec bash'],
-        'urxvt': ['urxvt', '-e', 'bash', '-c', '{command}; exec bash'],
-        'st': ['st', '-e', 'bash', '-c', '{command}; exec bash'],
+        'gnome-terminal': ['gnome-terminal', '--', 'bash', '-c', '{command}'],
+        'kitty': ['kitty', 'bash', '-c', '{command}'],
+        'konsole': ['konsole', '-e', 'bash', '-c', '{command}'],
+        'xfce4-terminal': ['xfce4-terminal', '-e', 'bash -c "{command}"'],
+        'xterm': ['xterm', '-e', 'bash -c "{command}"'],
+        'terminator': ['terminator', '-e', 'bash -c "{command}"'],
+        'alacritty': ['alacritty', '-e', 'bash', '-c', '{command}'],
+        'tilix': ['tilix', '-e', 'bash -c "{command}"'],
+        'mate-terminal': ['mate-terminal', '-e', 'bash -c "{command}"'],
+        'lxterminal': ['lxterminal', '-e', 'bash -c "{command}"'],
+        'rxvt': ['rxvt', '-e', 'bash', '-c', '{command}'],
+        'urxvt': ['urxvt', '-e', 'bash', '-c', '{command}'],
+        'st': ['st', '-e', 'bash', '-c', '{command}'],
     }
     
     return templates.get(terminal)
 
 
-def run_command_in_terminal(command: str, terminal: Optional[str] = None) -> bool:
+def run_command_in_terminal(command: str, terminal: Optional[str] = None, capture_output: bool = False) -> bool:
     """
     Run a command in a new terminal window.
     
     Args:
         command: The command to run.
         terminal: The terminal to use. If None, uses the default terminal.
+        capture_output: If True, capture stdout/stderr (only works for background processes)
     
     Returns:
-        bool: True if the command was launched successfully, False otherwise.
+        bool or subprocess.Popen: True if launched successfully, False otherwise.
+                                   If capture_output=True, returns the Popen object.
     """
     if terminal is None:
         terminal = detect_default_terminal()
@@ -171,13 +173,61 @@ def run_command_in_terminal(command: str, terminal: Optional[str] = None) -> boo
         terminal_cmd.append(part.replace('{command}', command))
     
     try:
-        result = subprocess.Popen(terminal_cmd, text=True)
-        logging.info(f"Launched command in terminal '{terminal}': {command}")
-        logging.info(result)
-        return result
+        if capture_output:
+            # Capture output - useful for background processes
+            result = subprocess.Popen(
+                terminal_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            logging.info(f"Launched command in terminal '{terminal}' with output capture: {command}")
+            return result
+        else:
+            # Normal terminal launch without output capture
+            result = subprocess.Popen(terminal_cmd)
+            logging.info(f"Launched command in terminal '{terminal}': {command}")
+            return result
     except Exception as e:
         print(f"Error launching terminal: {e}")
+        logging.error(f"Error launching terminal: {e}")
         return False
+
+
+def get_process_output(process: subprocess.Popen, timeout: Optional[int] = None) -> Dict[str, str]:
+    """
+    Get the output from a running process.
+    
+    Args:
+        process: The Popen process object
+        timeout: Maximum time to wait for process completion (in seconds)
+    
+    Returns:
+        Dict with 'stdout', 'stderr', and 'returncode' keys
+    """
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+        return {
+            'stdout': stdout if stdout else '',
+            'stderr': stderr if stderr else '',
+            'returncode': process.returncode
+        }
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        return {
+            'stdout': stdout if stdout else '',
+            'stderr': stderr if stderr else '',
+            'returncode': -1,
+            'error': 'Process timed out'
+        }
+    except Exception as e:
+        return {
+            'stdout': '',
+            'stderr': str(e),
+            'returncode': -1,
+            'error': str(e)
+        }
 
 
 if __name__ == "__main__":

@@ -18,30 +18,35 @@ logger = logging.getLogger(__name__)
 
 
 @tool("run_command", return_direct=False)
-def run_command(commands: str) -> str:
+def run_command(commands: str, capture_output: bool = False) -> str:
     """
-    Opens a new terminal window and runs commands interactively.
+    Runs commands either in a terminal window or captures output directly.
     
     Args:
         commands: Commands to run. Can be:
                  - A single command: "ls -la"
                  - Multiple commands on separate lines (each will be executed after the previous)
-                 - Commands that need shell restart (like conda init) will open an interactive shell
+        capture_output: If True, runs in background and captures output (no terminal window).
+                       If False, opens a new terminal window (output not captured).
+
+    When capture_output=True:
+    - Commands run in the background
+    - Output (stdout/stderr) is captured and returned
+    - No terminal window opens
     
-    This tool is smart about command execution:
-    - For sequential commands, it creates a script that runs them one by one
-    - The terminal stays open for you to continue working
+    When capture_output=False (default):
+    - Opens a new terminal window
+    - You can see and interact with the terminal
+    - Output is NOT captured
+    
 
     Example queries:
-    - "Run ls -la"
-    - "Run npm install"
-    - "Open terminal and run conda activate myenv"
-    - "Run python script.py"
-    - "Execute: cd /tmp\nls\npwd" (multiple commands)
+    - "Run ls -la" - Opens terminal
+    - "Run ls -la and capture output" - Runs in background, returns output
+    - "Execute python script.py" - Opens terminal
+    - "Get output of: pwd" - Captures and returns output
     
-    Special handling for:
-    - Interactive shells: Keeps terminal open after commands
-    - All sensitive command are forbidden. But no list was defined, so you should estimate if they can harm the system.
+    Note: You cannot both open a terminal window AND capture output at the same time.
     """
     try:
         # Clean up the command string
@@ -50,55 +55,87 @@ def run_command(commands: str) -> str:
         if not command_input:
             return "Error: No command provided."
         
-        logger.info(f"Running command(s) in terminal: {command_input}")
+        logger.info(f"Running command(s): {command_input} (capture_output={capture_output})")
         
-        # Split commands by newlines or semicolons to handle multiple commands
-        command_lines = []
-        for line in command_input.replace(';', '\n').split('\n'):
-            line = line.strip()
-            if line:
-                command_lines.append(line)
+        if capture_output:
+            # Run command directly and capture output (no terminal window)
+            try:
+                result = subprocess.run(
+                    command_input,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                
+                output = f"✅ Command executed successfully\n"
+                output += f"Command: {command_input}\n\n"
+                
+                if result.stdout:
+                    output += f"--- STDOUT ---\n{result.stdout}\n"
+                if result.stderr:
+                    output += f"--- STDERR ---\n{result.stderr}\n"
+                    
+                output += f"--- EXIT CODE ---\n{result.returncode}\n"
+                
+                return output
+                
+            except subprocess.TimeoutExpired:
+                return f"⏱️ Command timed out after 30 seconds: {command_input}"
+            except Exception as e:
+                return f"❌ Failed to execute command: {str(e)}"
         
-        # Build the command script
-        if len(command_lines) == 1:
-            # Single command - run directly
-            final_command = command_lines[0]
         else:
-            # Multiple commands - create a script
-            script_lines = []
-            script_lines.append("#!/bin/bash")
-            script_lines.append("set -e")  # Exit on error
+            # Open terminal window (output not captured)
+            # Split commands by newlines or semicolons to handle multiple commands
+            command_lines = []
+            for line in command_input.replace(';', '\n').split('\n'):
+                line = line.strip()
+                if line:
+                    command_lines.append(line)
             
-            # Add each command
-            for cmd in command_lines:
-                script_lines.append(f"echo '▶ Running: {cmd}'")
-                script_lines.append(cmd)
+            # Build the command script
+            if len(command_lines) == 1:
+                # Single command - run directly with exec bash to keep terminal open
+                final_command = f"{command_lines[0]} ; exec bash"
+            else:
+                # Multiple commands - create a script
+                script_lines = []
+                script_lines.append("#!/bin/bash")
+                script_lines.append("set -e")  # Exit on error
+                
+                # Add each command
+                for cmd in command_lines:
+                    script_lines.append(f"echo '▶ Running: {cmd}'")
+                    script_lines.append(cmd)
+                
+                # Keep terminal open
+                script_lines.append("echo ''")
+                script_lines.append("echo '✅ All commands completed.'")
+                script_lines.append("echo 'Press Enter to close or continue working...'")
+                script_lines.append("exec bash")
+                
+                # Create a temporary script file
+                script_content = '\n'.join(script_lines)
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                    f.write(script_content)
+                    script_path = f.name
+                
+                # Make it executable
+                os.chmod(script_path, 0o755)
+                
+                final_command = f"bash {script_path}"
             
-            # Keep terminal open
-            script_lines.append("echo ''")
-            script_lines.append("echo '✅ All commands completed.'")
-            script_lines.append("echo 'Press any key to close or continue working...'")
-            script_lines.append("exec bash")
+            # Run the command in a new terminal window
+            result = terminal.run_command_in_terminal(final_command, capture_output=False)
             
-            # Create a temporary script file
-            script_content = '\n'.join(script_lines)
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
-                f.write(script_content)
-                script_path = f.name
-            
-            # Make it executable
-            os.chmod(script_path, 0o755)
-            
-            final_command = f"bash {script_path}"
-        
-        # Run the command in a new terminal window
-        result = terminal.run_command_in_terminal(final_command)
-        
-        if result:
-            command_preview = command_input[:100] + "..." if len(command_input) > 100 else command_input
-            return f"✅ Successfully launched terminal with command(s):\n{command_preview}\n\nThe terminal window is now open. You can continue working there."
-        else:
-            return "❌ Failed to launch terminal. Make sure a terminal emulator is installed on your system."
+            if result:
+                command_preview = command_input[:100] + "..." if len(command_input) > 100 else command_input
+                return f"✅ Successfully launched terminal with command(s):\n{command_preview}\n\n" \
+                       f"The terminal window is now open. You can see the output there.\n" \
+                       f"Note: To capture output, ask me to 'capture output' or 'get output of command'."
+            else:
+                return "❌ Failed to launch terminal. Make sure a terminal emulator is installed on your system."
             
     except Exception as e:
         error_msg = f"Failed to run command: {str(e)}"
