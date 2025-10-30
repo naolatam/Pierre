@@ -4,6 +4,7 @@ import platform
 import tempfile
 import sys
 import shutil
+import utils.terminal as terminal
 
 @tool("matrix_mode", return_direct=True)
 def matrix_mode() -> str:
@@ -20,8 +21,10 @@ def matrix_mode() -> str:
         if system == "Linux":
             if shutil.which("cmatrix") is None:
                 return "Matrix mode requires 'cmatrix'. Please install it using your package manager."
-            subprocess.Popen(["gnome-terminal", "--", "cmatrix"])
-            return "Matrix mode activated! Enjoy the rain, Neo."
+            if terminal.run_command_in_terminal("cmatrix"):
+                return f"Matrix mode activated! Enjoy the rain, Neo."
+            else:
+                return "Failed to launch terminal for Matrix mode."
 
         elif system == "Darwin":
             if shutil.which("cmatrix") is None:
