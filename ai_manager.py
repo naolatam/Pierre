@@ -1,3 +1,4 @@
+import os
 from singleton import singleton
 from tool_manager import ToolManager
 from langchain_ollama import ChatOllama, OllamaLLM
@@ -20,7 +21,7 @@ class AIManager:
     def __init__(self):
         self.tool_manager = ToolManager()
 
-        self.llm = ChatOllama(model="qwen3", reasoning=False)
+        self.llm = ChatOllama(model=os.getenv("LLAMA_MODEL"), reasoning=os.getenv("LLAMA_RESONING"), base_url=os.getenv("OLLAMA_BASE_URL"))
         #llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, organization=org_id) for openai
 
         # Load initial tools
